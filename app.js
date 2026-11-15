@@ -132,6 +132,7 @@ $('#needChecks').innerHTML = SERVICES.map(s => `<label><input type="checkbox" na
   set(s[1], num, suf, 'lifetime visits across the portfolio');
   set(s[2], TOTAL_PLAYING_NOW, '', 'players in our games right now');
   set(s[3], avgLikes, '%', 'average like rating');
+  if (visits) $('#stkVisits').textContent = `★ ${v} visits`;
 })();
 $('#yr').textContent = new Date().getFullYear();
 const motionBtn = $('#motionBtn');
@@ -274,7 +275,8 @@ const hero = $('.hero');
 (() => {
   const cv = document.createElement('canvas'); cv.setAttribute('aria-hidden', 'true'); hero.prepend(cv);
   const ctx = cv.getContext('2d'); if (!ctx) return;
-  const GAP = 30, mouse = { x: -9999, y: -9999 };
+  const GAP = 44, mouse = { x: -9999, y: -9999 };
+  const PAL = ['255,210,63', '61,123,255', '255,111,181', '46,212,122', '255,138,61'];
   let W = 0, H = 0, ripples = [], raf = 0, visible = false, lastAuto = 0;
   function resize() {
     const r = hero.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
@@ -293,11 +295,12 @@ const hero = $('.hero');
       let v = m * m;
       for (const r of ripples) { const q = (Math.hypot(x - r.x, y - r.y) - r.r) / 34; v += Math.exp(-q * q) * r.life; }
       v = Math.min(1, v);
-      const s = 0.8 + wave * 0.7 + v * 4.2;
-      ctx.fillStyle = v > 0.04
-        ? `rgba(${Math.round(124 + 131 * v)},${Math.round(108 - 13 * v)},${Math.round(255 - 55 * v)},${0.3 + v * 0.7})`
-        : `rgba(255,255,255,${0.06 + wave * 0.1})`;
-      ctx.beginPath(); ctx.arc(x, y, s, 0, 6.2832); ctx.fill();
+      if (v < 0.05) continue; // idle grid comes from CSS; blocks only pop where you point/click
+      const s = 4 + v * 14 + wave * 2, c = PAL[((x / GAP | 0) * 7 + (y / GAP | 0) * 3) % PAL.length];
+      ctx.save(); ctx.translate(x, y); ctx.rotate((1 - v) * 0.6);
+      ctx.fillStyle = `rgba(${c},${0.25 + v * 0.75})`; ctx.fillRect(-s / 2, -s / 2, s, s);
+      ctx.lineWidth = 2; ctx.strokeStyle = `rgba(23,19,15,${v * 0.9})`; ctx.strokeRect(-s / 2, -s / 2, s, s);
+      ctx.restore();
     }
     if (once) return;
     if (t - lastAuto > 2600) { lastAuto = t; ripples.push({ x: Math.random() * W, y: Math.random() * H, r: 0, life: 0.7 }); }
@@ -308,7 +311,12 @@ const hero = $('.hero');
     if (run && !raf) raf = requestAnimationFrame(draw);
     if (!run && raf) { cancelAnimationFrame(raf); raf = 0; }
   }
-  hero.addEventListener('pointermove', e => { const r = hero.getBoundingClientRect(); mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top; });
+  hero.addEventListener('pointermove', e => {
+    const r = hero.getBoundingClientRect(); mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top;
+    // parallax for the floating blocks and stickers (-1..1)
+    hero.style.setProperty('--px', ((mouse.x / r.width) * 2 - 1).toFixed(3));
+    hero.style.setProperty('--py', ((mouse.y / r.height) * 2 - 1).toFixed(3));
+  });
   hero.addEventListener('pointerleave', () => { mouse.x = mouse.y = -9999; });
   hero.addEventListener('pointerdown', e => { const r = hero.getBoundingClientRect(); ripples.push({ x: e.clientX - r.left, y: e.clientY - r.top, r: 0, life: 1 }); });
   if ('ResizeObserver' in window) new ResizeObserver(resize).observe(hero); else addEventListener('resize', resize);
@@ -353,7 +361,7 @@ if (!reduced && matchMedia('(hover:hover) and (pointer:fine)').matches) {
   let tilt = null, mag = null;
   document.addEventListener('pointermove', e => {
     const t = e.target instanceof Element ? e.target : null;
-    const c = t && t.closest('.card'), b = t && t.closest('.btn');
+    const c = t && t.closest('.card'), b = null; // buttons use the CSS press effect instead of magnetic pull
     const sp = t && t.closest('.svc-rows a, .stat, .steps li, .svc-item, .fit-tool, .form');
     if (sp) { const r = sp.getBoundingClientRect(); sp.style.setProperty('--sx', `${e.clientX - r.left}px`); sp.style.setProperty('--sy', `${e.clientY - r.top}px`); }
     if (tilt && tilt !== c) { $('.cover', tilt).style.transform = ''; tilt = null; }
