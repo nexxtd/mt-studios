@@ -128,7 +128,7 @@ $('#svcDetail').innerHTML = SERVICES.map((s, i) => `<article class="svc-item rev
    Discord → profile → Copy User ID) to make the button open their profile instead. */
 const TEAM = [
   { name: 'Anuhai', role: 'Founder', lead: true },
-  { name: 'gyro', role: 'Team', discord: 'gyro' },
+  { name: 'gyro', role: 'Team', discord: 'gyro.ex' },
   { name: 'Aurx', role: 'COO', discord: 'x0yc.' },
   { name: 'wasealhere', role: 'Team', discord: 'wasealhere' },
   { name: 'f2yv', role: 'Team', discord: 'f2yv' },
