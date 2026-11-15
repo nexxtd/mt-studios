@@ -14,20 +14,61 @@
 </head>
 <body class="admin">
 
+<!-- ========== LOGIN ========== -->
+<main id="login" class="a-login" hidden>
+  <form class="form a-login-card" id="loginForm">
+    <p class="eyebrow">MT Studios · Admin</p>
+    <h1 class="display">Sign in</h1>
+    <div class="field">
+      <label for="pw">Password</label>
+      <input id="pw" name="password" type="password" autocomplete="current-password" required autofocus>
+      <p class="err" id="loginErr" role="alert"></p>
+    </div>
+    <button class="btn btn-sig" type="submit">Enter <span aria-hidden="true">→</span></button>
+  </form>
+</main>
+
 <!-- ========== DASHBOARD ========== -->
-<div id="dash">
+<div id="dash" hidden>
   <header class="top">
     <a class="brand" href="/" aria-label="Back to site">
       <img class="mark" src="assets/brand/emblem-128.png" width="44" height="44" alt="">
       <span class="brand-word">MT<span>Admin</span></span>
     </a>
+    <nav class="a-views" aria-label="Admin sections">
+      <a href="#pitches" data-view="pitches">Pitches</a>
+      <a href="#games" data-view="games">Games</a>
+    </nav>
     <div class="a-top-actions">
       <button class="a-chip" id="refresh" type="button">Refresh</button>
-      <button class="a-chip a-chip-ink" id="export" type="button">Export CSV</button>
+      <button class="a-chip" id="export" type="button">Export CSV</button>
+      <button class="a-chip a-chip-ink" id="logout" type="button">Sign out</button>
     </div>
   </header>
 
-  <main class="a-main">
+  <main class="a-main" id="gamesView" hidden>
+    <div class="a-head">
+      <p class="eyebrow">Portfolio</p>
+      <h1 class="display">Our games</h1>
+      <p class="a-sub">Games the studio owns or has bought. Everything here (except hidden games) shows on the website with live stats from Roblox.</p>
+    </div>
+
+    <form class="a-add" id="addForm" autocomplete="off">
+      <label for="gInput" class="a-add-label">Add a game</label>
+      <div class="a-add-row">
+        <input id="gInput" class="a-search" placeholder="Paste a Roblox game link or ID — roblox.com/games/…" required>
+        <button class="btn btn-sig" type="submit" id="lookupBtn">Look up <span aria-hidden="true">→</span></button>
+      </div>
+      <p class="err" id="addErr" role="alert"></p>
+    </form>
+    <div id="addPreview"></div>
+
+    <div class="a-stats" id="gStats"></div>
+    <p class="a-msg" id="gMsg" role="status"></p>
+    <div class="a-list" id="gList"></div>
+  </main>
+
+  <main class="a-main" id="pitchesView">
     <div class="a-head">
       <p class="eyebrow">Pitch inbox</p>
       <h1 class="display">Pitched games</h1>

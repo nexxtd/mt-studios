@@ -71,3 +71,4 @@ export async function hit(bucket, windowSec) {
   if (!e || e.until < now) { hits.set(bucket, { n: 1, until: now + windowSec * 1000 }); return 1; }
   return ++e.n;
 }
+export async function clearHits(bucket) { hits.delete(bucket); }

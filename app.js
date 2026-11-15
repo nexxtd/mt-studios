@@ -33,10 +33,17 @@ const SERVICES = [
     items: ['Cross-device regression testing', 'Performance profiling on low-end devices', 'Localization in 12 languages', 'Moderation & policy review'] },
 ];
 
-// Real games: generated from the Roblox API by update-games.mjs into games-data.js
-const GAMES = (window.MT_GAMES || []).map(g => ({ ...g, year: new Date(g.created).getFullYear() }));
-const TOTAL_PLAYING_NOW = GAMES.reduce((a, g) => a + g.playing, 0) || 1000;
-const UPDATED = window.MT_GAMES_UPDATED ? new Date(window.MT_GAMES_UPDATED) : null;
+// Games come live from /api/games (managed in /admin → Games, stats from the Roblox API).
+// games-data.js is a saved snapshot used only until the live data arrives, or if the API
+// isn't reachable (e.g. opening index.html straight from disk).
+const normalize = g => ({ ...g, playing: g.playing || 0, visits: g.visits || 0, favorites: g.favorites || 0,
+  likes: g.likes ?? 0, howTo: g.howTo || [], intro: g.intro || '', year: g.created ? new Date(g.created).getFullYear() : '' });
+let GAMES = (window.MT_GAMES || []).map(normalize);
+let LIVE = false;                 // true once /api/games has answered
+let UPDATED = window.MT_GAMES_UPDATED ? new Date(window.MT_GAMES_UPDATED) : null;
+let HISTORY = [];                 // [[timeMs, totalPlaying], …] recorded by the server
+const totalPlaying = () => GAMES.reduce((a, g) => a + g.playing, 0);
+let liveSettled = false, liveFirst = Promise.resolve(false);
 function compact(n) {
   if (n >= 1e9) return +(n / 1e9).toFixed(1) + 'B';
   if (n >= 1e6) return +(n / 1e6).toFixed(1) + 'M';
@@ -51,25 +58,21 @@ const TRACKS = {
   Scale:  { fund: '$750K+', crew: 'Full embedded crew of 5–8', focus: 'Content pipeline, localization, portfolio cross-promo' },
 };
 
-const FEED = GAMES.length ? GAMES.flatMap(g => [
-  ['LIVE', `${g.name}: ${g.playing.toLocaleString('en-US')} playing`],
-  ['VISITS', `${g.name}: ${compact(g.visits)} visits`],
-  ['RATING', `${g.name}: ${g.likes}% liked`],
-]) : [['LIVE', 'Portfolio loading']];
 /* ===================================================================================== */
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /* ---------- game covers (real thumbnails) ---------- */
 function cover(g, big) {
-  return `<div class="cover${big ? ' big' : ''}">
-    <img src="${esc(big ? g.thumb : g.thumb)}" alt="" loading="${big ? 'eager' : 'lazy'}" decoding="async" onload="this.parentNode.classList.add('loaded')">
-    <span class="status"><i></i>${g.playing.toLocaleString('en-US')} playing</span>
-    <img class="cover-icon" src="${esc(g.icon)}" alt="" loading="lazy" decoding="async">
+  const img = g.thumb || g.icon;
+  return `<div class="cover${big ? ' big' : ''}${img ? '' : ' loaded'}">
+    ${img ? `<img src="${esc(img)}" alt="" loading="${big ? 'eager' : 'lazy'}" decoding="async" onload="this.parentNode.classList.add('loaded')" onerror="this.parentNode.classList.add('loaded')">` : ''}
+    <span class="status"><i></i><span data-playing>${g.playing.toLocaleString('en-US')}</span> playing</span>
+    ${g.icon ? `<img class="cover-icon" src="${esc(g.icon)}" alt="" loading="lazy" decoding="async">` : ''}
   </div>`;
 }
 function card(g) {
-  return `<a class="card reveal" href="#/portfolio/${g.slug}" aria-label="${esc(g.name)} by ${esc(g.studio)}">
+  return `<a class="card reveal" data-u="${g.universeId}" href="#/portfolio/${esc(g.slug)}" aria-label="${esc(g.name)} by ${esc(g.studio)}">
     ${cover(g)}
     <div class="card-meta"><h3>${esc(g.name)}</h3><span class="k">${esc(g.studio)}</span></div>
     <div class="card-foot"><div class="tags"><span>${compact(g.visits)} visits</span><span>${g.likes}% liked</span></div><span>Since <b>${new Date(g.created).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</b></span></div>
@@ -119,21 +122,29 @@ $('#svcDetail').innerHTML = SERVICES.map((s, i) => `<article class="svc-item rev
   <p>${esc(s.long)}</p>
   <ul>${s.items.map(x => `<li>${esc(x)}</li>`).join('')}</ul></article>`).join('');
 
-$('#featured').innerHTML = GAMES.map(card).join('');
+function renderFeatured() {
+  const feat = GAMES.filter(g => g.featured);
+  $('#featured').innerHTML = (feat.length ? feat : GAMES).slice(0, 6).map(card).join('');
+  watch($('#featured'));
+}
+renderFeatured();
 
 $('#needChecks').innerHTML = SERVICES.map(s => `<label><input type="checkbox" name="needs" value="${esc(s.id)}"><span>${esc(s.id)}</span></label>`).join('');
 
-(() => {
+function renderStats() {
   const s = $$('.stats .stat b'), visits = GAMES.reduce((a, g) => a + g.visits, 0);
-  const avgLikes = GAMES.length ? Math.round(GAMES.reduce((a, g) => a + g.likes, 0) / GAMES.length) : 0;
+  const rated = GAMES.filter(g => g.likes);
+  const avgLikes = rated.length ? Math.round(rated.reduce((a, g) => a + g.likes, 0) / rated.length) : 0;
   const v = compact(visits), num = parseFloat(v), suf = v.replace(/[\d.]/g, '');
+  // before the count-up has run, it animates to data-count; afterwards just show the new value
   const set = (el, n, suffix, label) => { el.dataset.count = n; el.dataset.suffix = suffix; el.textContent = n.toLocaleString('en-US') + suffix; el.nextElementSibling.textContent = label; };
   set(s[0], GAMES.length, '', 'games in the portfolio');
   set(s[1], num, suf, 'lifetime visits across the portfolio');
-  set(s[2], TOTAL_PLAYING_NOW, '', 'players in our games right now');
+  set(s[2], totalPlaying(), '', 'players in our games right now');
   set(s[3], avgLikes, '%', 'average like rating');
   if (visits) $('#stkVisits').textContent = `★ ${v} visits`;
-})();
+}
+renderStats();
 $('#yr').textContent = new Date().getFullYear();
 const motionBtn = $('#motionBtn');
 motionBtn.textContent = `Motion: ${reduced ? 'Off' : 'On'}`;
@@ -178,8 +189,8 @@ function renderCase(g) {
         <p class="lede">${esc(g.intro)}</p>
         <div class="actions"><a class="btn btn-sig" href="${playUrl(g)}" target="_blank" rel="noopener">Play on Roblox <span aria-hidden="true">↗</span></a></div>
       </div>
-      <div class="case-stats">
-        <div><b>${g.playing.toLocaleString('en-US')}</b><span>Playing now</span></div>
+      <div class="case-stats" data-u="${g.universeId}">
+        <div><b data-playing>${g.playing.toLocaleString('en-US')}</b><span>Playing now</span></div>
         <div><b>${compact(g.visits)}</b><span>Visits</span></div>
         <div><b>${g.likes}%</b><span>Liked · ${compact(g.favorites)} favs</span></div>
       </div>
@@ -194,7 +205,11 @@ function renderCase(g) {
     <div><p class="eyebrow">Next game</p><a class="display" href="#/portfolio/${next.slug}">${esc(next.name)} →</a></div>
     <a class="btn btn-ghost" href="#/apply">Pitch your game <span aria-hidden="true">→</span></a>
   </section>` : ''}
-  ${UPDATED ? `<p class="data-note">Stats from the Roblox API, ${UPDATED.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}.</p>` : ''}`;
+  <p class="data-note" id="caseNote">${dataNote()}</p>`;
+}
+function dataNote() {
+  if (LIVE) return `Live stats from the Roblox API · refreshed every minute.`;
+  return UPDATED ? `Stats from the Roblox API, ${UPDATED.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}.` : '';
 }
 
 /* ---------- router ---------- */
@@ -216,6 +231,8 @@ function swap() {
   let view = parts[0] || 'home', navKey = view;
   if (view === 'portfolio' && parts[1]) {
     const g = GAMES.find(x => x.slug === parts[1]);
+    // A game added in the admin isn't in the saved snapshot; wait for the live list first.
+    if (!g && !liveSettled) { liveFirst.then(() => swap()); return; }
     if (!g) { location.replace('#/portfolio'); return; }
     renderCase(g); view = 'case'; navKey = 'portfolio'; document.title = `${g.name} — MT Studios`;
   } else {
@@ -384,36 +401,100 @@ if (!reduced && matchMedia('(hover:hover) and (pointer:fine)').matches) {
   });
 }
 
-/* ---------- ops console (demo data) ---------- */
+/* ---------- live console: real player counts from /api/games ---------- */
 const fmt = n => Math.round(n).toLocaleString('en-US');
-const line = $('#spark polyline'), ccuEl = $('#ccu');
-let series = Array.from({ length: 40 }, (_, i) => TOTAL_PLAYING_NOW * (0.94 + Math.sin(i / 4) * 0.03 + i * 0.0015));
-series[series.length - 1] = TOTAL_PLAYING_NOW;
+const hhmm = d => d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+const line = $('#spark polyline'), ccuEl = $('#ccu'), feedEl = $('#opsfeed');
+const SPLIT_COLORS = ['var(--blue)', 'var(--pink)', 'var(--yellow)', 'var(--green)', 'var(--orange)', 'var(--purple)'];
+let shownTotal = 0, prevTotal = null, prevAt = null, prevByGame = new Map(), localSamples = [];
+
+function tweenNumber(el, from, to) {
+  if (reduced || from === to || !from) { el.textContent = fmt(to); return; }
+  const t0 = performance.now(), dur = 900;
+  const tick = t => { const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3); el.textContent = fmt(from + (to - from) * e); if (p < 1) requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+}
+
 function drawSpark() {
-  const min = Math.min(...series), max = Math.max(...series), span = max - min || 1;
-  line.setAttribute('points', series.map((v, i) => `${(i / (series.length - 1) * 240).toFixed(1)},${(60 - (v - min) / span * 56).toFixed(1)}`).join(' '));
-  ccuEl.textContent = fmt(series[series.length - 1]);
+  // server history (persisted) + samples this page has seen, de-duplicated by minute
+  const byMin = new Map();
+  for (const [t, v] of [...HISTORY, ...localSamples]) byMin.set(Math.floor(t / 60000), [t, v]);
+  const pts = [...byMin.values()].sort((a, b) => a[0] - b[0]);
+  const label = $('#sparkLabel');
+  if (pts.length < 2) { line.setAttribute('points', ''); label.textContent = LIVE ? 'Recording history…' : ''; return; }
+  const t0 = pts[0][0], t1 = pts[pts.length - 1][0], tspan = t1 - t0 || 1;
+  const vals = pts.map(p => p[1]), min = Math.min(...vals), max = Math.max(...vals), span = max - min || 1;
+  line.setAttribute('points', pts.map(([t, v]) => `${((t - t0) / tspan * 240).toFixed(1)},${(60 - (v - min) / span * 56).toFixed(1)}`).join(' '));
+  const hours = tspan / 3600000;
+  label.textContent = hours >= 20 ? 'Last 24 hours' : hours >= 1 ? `Last ${Math.round(hours)}h` : `Since ${hhmm(new Date(t0))}`;
 }
-drawSpark();
-const feedEl = $('#opsfeed');
-let feedI = 0;
-function feedItem() {
-  const [tag, text] = FEED[feedI++ % FEED.length];
-  const t = new Date(), hh = String(t.getHours()).padStart(2, '0'), mm = String(t.getMinutes()).padStart(2, '0');
-  const li = document.createElement('li');
-  li.innerHTML = `<time>${hh}:${mm}</time><span>${esc(text)}</span><span class="tag">${esc(tag)}</span>`;
-  feedEl.prepend(li);
-  while (feedEl.children.length > 3) feedEl.lastElementChild.remove();
+
+function renderConsole() {
+  const total = totalPlaying(), now = new Date();
+  tweenNumber(ccuEl, shownTotal, total); shownTotal = total;
+
+  const delta = $('#ccuDelta');
+  if (prevTotal !== null && LIVE) {
+    const d = total - prevTotal;
+    delta.textContent = d === 0 ? `No change since ${hhmm(prevAt)}` : `${d > 0 ? '▲' : '▼'} ${fmt(Math.abs(d))} since ${hhmm(prevAt)}`;
+    delta.className = 'ccu-delta' + (d > 0 ? ' up' : d < 0 ? ' down' : '');
+  } else delta.textContent = '';
+
+  $('#ccuUpdated').textContent = LIVE ? `updated ${hhmm(UPDATED || now)}` : (UPDATED ? `snapshot · ${UPDATED.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : '');
+  $('#liveLabel').textContent = LIVE ? 'LIVE · ROBLOX' : 'SNAPSHOT · ROBLOX';
+  $('#liveDot').classList.toggle('off', !LIVE);
+
+  // each game's share of the players online right now
+  const sorted = [...GAMES].sort((a, b) => b.playing - a.playing);
+  $('#ccuSplit').innerHTML = total ? sorted.map((g, i) =>
+    `<i style="flex:${g.playing} 1 0;background:${SPLIT_COLORS[i % SPLIT_COLORS.length]}" title="${esc(g.name)}: ${fmt(g.playing)}"></i>`).join('') : '';
+
+  // live leaderboard: top games by players, with change since the last check
+  feedEl.innerHTML = sorted.slice(0, 3).map((g, i) => {
+    const before = prevByGame.get(g.universeId), d = before == null ? null : g.playing - before;
+    const tag = d == null || !LIVE ? 'LIVE' : d === 0 ? '±0' : (d > 0 ? '+' : '−') + fmt(Math.abs(d));
+    const cls = d > 0 ? ' up' : d < 0 ? ' down' : '';
+    return `<li style="animation-delay:${i * 70}ms"><i class="sw" style="background:${SPLIT_COLORS[i % SPLIT_COLORS.length]}"></i>
+      <span>${esc(g.name)}</span><b>${fmt(g.playing)}</b><span class="tag${cls}">${tag}</span></li>`;
+  }).join('');
+  drawSpark();
 }
-for (let i = 0; i < 3; i++) feedItem();
-if (!reduced) {
-  setInterval(() => {
-    if (document.hidden) return;
-    const last = series[series.length - 1];
-    series.push(Math.max(TOTAL_PLAYING_NOW * 0.85, Math.min(TOTAL_PLAYING_NOW * 1.12, last + (Math.random() - 0.48) * TOTAL_PLAYING_NOW * 0.012))); series.shift(); drawSpark();
-  }, 1200);
-  setInterval(() => { if (!document.hidden) feedItem(); }, 3400);
+
+// Update numbers already on screen without re-rendering (so images don't reload).
+function patchNumbers() {
+  for (const g of GAMES) {
+    for (const el of $$(`[data-u="${g.universeId}"] [data-playing]`)) el.textContent = fmt(g.playing);
+  }
+  const note = $('#caseNote'); if (note) note.textContent = dataNote();
 }
+
+function applyLive(d) {
+  const oldSet = GAMES.map(g => g.universeId + ':' + g.slug + ':' + g.featured).join(), had = LIVE;
+  if (had) { prevTotal = totalPlaying(); prevAt = UPDATED || new Date(); prevByGame = new Map(GAMES.map(g => [g.universeId, g.playing])); }
+  GAMES = d.games.map(normalize); LIVE = true;
+  UPDATED = d.updatedAt ? new Date(d.updatedAt) : new Date();
+  HISTORY = Array.isArray(d.history) ? d.history : [];
+  localSamples.push([UPDATED.getTime(), totalPlaying()]);
+  const newSet = GAMES.map(g => g.universeId + ':' + g.slug + ':' + g.featured).join();
+  if (newSet !== oldSet) { renderFeatured(); renderChips(); renderGrid(); }  // games added/removed in admin
+  else patchNumbers();
+  renderStats(); renderConsole();
+}
+
+async function loadLive() {
+  try {
+    const r = await fetch('/api/games', { headers: { accept: 'application/json' }, cache: 'no-cache' });
+    if (!r.ok) return false;
+    const d = await r.json();
+    if (!Array.isArray(d.games) || !d.games.length) return false;
+    applyLive(d); return true;
+  } catch { return false; }
+}
+
+renderConsole();
+liveFirst = loadLive().finally(() => { liveSettled = true; });
+setInterval(() => { if (!document.hidden && LIVE) loadLive(); }, 30_000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && LIVE) loadLive(); });
 
 /* ---------- fit tool ---------- */
 const fit = $('#fit'), slider = $('#fitCcu');
@@ -496,7 +577,7 @@ if (reduced) root.classList.add('ready');
 else {
   const loader = document.createElement('div');
   loader.className = 'loader'; loader.setAttribute('aria-hidden', 'true');
-  loader.innerHTML = `<div class="loader-in"><div class="loader-mark">${[0, 1, 2, 3].map(i => `<i style="--d:${i}"></i>`).join('')}</div>
+  loader.innerHTML = `<div class="loader-in"><div class="loader-logo"><span class="loader-tap"></span><img src="assets/brand/emblem-256.png" width="150" height="150" alt=""></div>
     <div class="loader-row"><span>Loading portfolio</span><span class="loader-pct">0%</span></div>
     <div class="loader-bar"><i></i></div></div>`;
   document.body.append(loader);

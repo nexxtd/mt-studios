@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="icon" type="image/png" href="assets/brand/icon-32.png">
 <link rel="apple-touch-icon" href="assets/brand/icon-180.png">
+<link rel="preload" as="image" href="assets/brand/emblem-256.png">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -56,18 +57,23 @@
         </div>
       </div>
 
-      <aside class="console" aria-label="Live operations console, demo data">
+      <aside class="console" aria-label="Live player counts from Roblox">
         <div class="console-head">
-          <span><i class="live"></i> OPS-CONSOLE</span>
-          <span class="dim">demo data</span>
+          <span><i class="live" id="liveDot"></i> <span id="liveLabel">LIVE · ROBLOX</span></span>
+          <span class="dim" id="ccuUpdated">connecting…</span>
         </div>
         <div class="console-main">
           <div>
-            <div class="k">Portfolio CCU</div>
-            <div class="ccu" id="ccu">48,210</div>
+            <div class="k">Playing right now</div>
+            <div class="ccu" id="ccu" aria-live="polite">—</div>
+            <div class="ccu-delta" id="ccuDelta"></div>
           </div>
-          <svg id="spark" viewBox="0 0 240 64" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
+          <div class="spark-wrap">
+            <svg id="spark" viewBox="0 0 240 64" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
+            <div class="k spark-label" id="sparkLabel"></div>
+          </div>
         </div>
+        <div class="ccu-split" id="ccuSplit" aria-hidden="true"></div>
         <ul class="console-list" id="opsfeed"></ul>
       </aside>
     </div>

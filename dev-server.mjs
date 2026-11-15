@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 
 const ROOT = process.cwd(), PORT = Number(process.env.PORT) || 5173;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json' };
-const ADMIN_CSP = "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+const ADMIN_CSP = "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://tr.rbxcdn.com https://*.rbxcdn.com; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
 
 http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
