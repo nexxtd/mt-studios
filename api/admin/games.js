@@ -35,7 +35,8 @@ export const POST = handle(async req => {
   const date = cleanDate(acquiredOn);
   if (date === undefined) return json({ error: 'Purchase date must be a valid date.' }, 400);
   const all = await listGames();
-  const { universeId: _u, placeId, name, studio, ...stats } = live;
+  const { universeId: _u, placeId, studio, name: _n, ...stats } = live;
+  const name = live.name || `Game ${universeId}`; // a placeholder name gets fixed on the next refresh
   const game = {
     universeId, placeId, name, studio,
     slug: all.some(g => g.slug === slugify(name)) ? `${slugify(name)}-${universeId}` : slugify(name),

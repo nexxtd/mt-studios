@@ -9,7 +9,7 @@ const SB_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SB_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // The games the site launched with; used to seed an empty local store.
-export const SEED_UNIVERSES = [10770806914, 10772159183, 10773748361];
+export const SEED_UNIVERSES = [10770806914, 10772159183, 10764173782, 10774597123, 10499079217, 10773748361, 10769660609, 10772655444, 2177157737, 10768637423, 10769433835, 10764393451, 10772808476, 10099509236, 10437881316, 10772757640];
 
 function backend() {
   if (SB_URL && SB_KEY) return 'supabase';

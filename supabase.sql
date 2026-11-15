@@ -44,11 +44,24 @@ create table if not exists public.games (
 );
 alter table public.games enable row level security;
 
--- The three launch games; stats fill in automatically on the first visit.
+-- The portfolio games (imported from mtstudios.xyz); names and stats fill in automatically.
 insert into public.games (universe_id, slug, position) values
-  (10770806914, 'escape-the-jungle', 0),
-  (10772159183, 'build-a-steal-an-egg', 1),
-  (10773748361, 'throw-food-for-sea-monsters', 2)
+  (10770806914, '10770806914', 0),
+  (10772159183, '10772159183', 1),
+  (10764173782, '10764173782', 2),
+  (10774597123, '10774597123', 3),
+  (10499079217, '10499079217', 4),
+  (10773748361, '10773748361', 5),
+  (10769660609, '10769660609', 6),
+  (10772655444, '10772655444', 7),
+  (2177157737, '2177157737', 8),
+  (10768637423, '10768637423', 9),
+  (10769433835, '10769433835', 10),
+  (10764393451, '10764393451', 11),
+  (10772808476, '10772808476', 12),
+  (10099509236, '10099509236', 13),
+  (10437881316, '10437881316', 14),
+  (10772757640, '10772757640', 15)
 on conflict (universe_id) do nothing;
 
 create table if not exists public.ccu_samples (

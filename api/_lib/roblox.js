@@ -20,7 +20,9 @@ export const clean = s => String(s || '')
   .replace(/\[[^\]]*\]/g, '')
   .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}\u{2B00}-\u{2BFF}\u{1F1E6}-\u{1F1FF}]/gu, '')
   .replace(/�/g, '').replace(/[ \t]+/g, ' ').trim();
-export const slugify = s => clean(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'game';
+// Game names: drop [UPD!]-style tags, unless that would leave almost nothing ("[Brick Bronze] PBR").
+export const cleanName = s => { const c = clean(s); return c.length > 4 ? c : clean(String(s || '').replace(/[\[\]]/g, ' ')); };
+export const slugify = s => cleanName(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'game';
 
 /* ---------- turn whatever the admin pastes into a universe ID ---------- */
 // Accepts: roblox.com/games/<placeId>/..., a share link (roblox.com/share?code=...),
@@ -39,10 +41,14 @@ export async function resolveUniverse(input) {
     throw bad('That Roblox link isn’t a game page. Open the game and copy its link.');
   }
   if (/^\d{3,20}$/.test(raw)) {
-    // A number could be a place ID or a universe ID; try place first.
-    try { return await universeFromPlace(raw); } catch (e) { if (e.status !== 404) throw e; }
-    const g = await get(`https://games.roblox.com/v1/games?universeIds=${raw}`);
-    if (g.data?.length) return Number(raw);
+    // A number can be a place ID *and* a universe ID of two different games (e.g. a real game's
+    // universe ID is also some random empty place). Look up both and keep the real one.
+    let fromPlace = null;
+    try { fromPlace = await universeFromPlace(raw); } catch (e) { if (e.status !== 404) throw e; }
+    const ids = [...new Set([fromPlace, Number(raw)].filter(Boolean))];
+    const g = await get(`https://games.roblox.com/v1/games?universeIds=${ids.join(',')}`);
+    const best = (g.data || []).sort((a, b) => (b.visits || 0) - (a.visits || 0))[0];
+    if (best) return Number(best.id);
     throw bad('No Roblox game found with that ID.', 404);
   }
   throw bad('Paste a Roblox game link (roblox.com/games/…) or a place/universe ID.');
@@ -93,7 +99,8 @@ export async function fetchGames(universeIds) {
       out.push({
         universeId: g.id,
         placeId: g.rootPlaceId,
-        name: clean(g.name) || g.name,
+        // Roblox sometimes sends a temporary 'TITLE UNAVAILABLE' placeholder; treat as unknown.
+        name: /title unavailable|content deleted/i.test(g.name || '') ? null : (cleanName(g.name) || g.name),
         studio: g.creator?.name || '',
         created: g.created,
         updated: g.updated,
