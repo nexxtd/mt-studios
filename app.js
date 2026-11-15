@@ -127,13 +127,14 @@ $('#svcDetail').innerHTML = SERVICES.map((s, i) => `<article class="svc-item rev
    discord: Discord username (button copies it). Add discordId (the long number from
    Discord → profile → Copy User ID) to make the button open their profile instead. */
 const TEAM = [
-  { name: 'Anuhai', role: 'Founder', lead: true },
-  { name: 'gyro', role: 'Team', discord: 'gyro.ex' },
+  { name: 'Anuhai', role: 'Founder', lead: true, img: 'assets/team/anuhai.webp' },
+  { name: 'gyro', role: 'Team', discord: 'gyro.ex', img: 'assets/team/gyro.webp' },
   { name: 'Aurx', role: 'COO', discord: 'x0yc.' },
+  { name: 'CarrougesV', role: 'Executive', discord: 'carrougesv', img: 'assets/team/carrougesv.webp' },
   { name: 'wasealhere', role: 'Team', discord: 'wasealhere' },
-  { name: 'f2yv', role: 'Team', discord: 'f2yv' },
+  { name: 'f2yv', role: 'Team', discord: 'f2yv', img: 'assets/team/f2yv.webp' },
   { name: 'tainted', role: 'Team', discord: 'tainted' },
-  { name: 'savant', role: 'CLO', discord: 'influentialfigure' },
+  { name: 'savant', role: 'CLO', discord: 'influentialfigure', img: 'assets/team/savant.webp' },
 ];
 const TEAM_COLORS = ['var(--yellow)', 'var(--blue)', 'var(--pink)', 'var(--green)', 'var(--orange)', 'var(--purple)'];
 const initialsOf = n => n.replace(/[^\p{L}\p{N}\s]/gu, '').split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
@@ -142,7 +143,7 @@ function memberCard(m, i) {
     ? `<a class="member-dc" href="https://discord.com/users/${esc(m.discordId)}" target="_blank" rel="noopener">${DC_ICON}<span>@${esc(m.discord || m.name)}</span></a>`
     : m.discord ? `<button type="button" class="member-dc" data-copy="${esc(m.discord)}" aria-label="Copy Discord username ${esc(m.discord)}">${DC_ICON}<span>@${esc(m.discord)}</span></button>` : '';
   return `<article class="member reveal${m.lead ? ' is-lead' : ''}">
-    <div class="member-avatar" style="--c:${m.lead ? 'var(--yellow)' : TEAM_COLORS[(i + 1) % TEAM_COLORS.length]}"><span>${esc(initialsOf(m.name))}</span></div>
+    <div class="member-avatar${m.img ? ' has-img' : ''}" style="--c:${m.lead ? 'var(--yellow)' : TEAM_COLORS[(i + 1) % TEAM_COLORS.length]}">${m.img ? `<img src="${esc(m.img)}" alt="${esc(m.name)}" loading="lazy" decoding="async">` : `<span>${esc(initialsOf(m.name))}</span>`}</div>
     <div class="member-info">
       ${m.lead ? '<p class="eyebrow">Leading MT Studios</p>' : ''}
       <h3>${esc(m.name)}</h3>
@@ -488,7 +489,7 @@ function renderConsole() {
   // each game's share of the players online right now
   const sorted = [...GAMES].sort((a, b) => b.playing - a.playing);
   $('#ccuSplit').innerHTML = total ? sorted.map((g, i) =>
-    `<i style="flex:${g.playing} 1 0;background:${SPLIT_COLORS[i % SPLIT_COLORS.length]}" title="${esc(g.name)}: ${fmt(g.playing)}"></i>`).join('') : '';
+    `<i style="flex:${g.playing} 1 0;background:${SPLIT_COLORS[i % SPLIT_COLORS.length]}" data-name="${esc(g.name)}" data-n="${g.playing}" data-pct="${total ? Math.round(g.playing / total * 100) : 0}"></i>`).join('') : '';
 
   // live leaderboard: top games by players, with change since the last check
   feedEl.innerHTML = sorted.slice(0, 3).map((g, i) => {
@@ -498,8 +499,30 @@ function renderConsole() {
     return `<li style="animation-delay:${i * 70}ms"><i class="sw" style="background:${SPLIT_COLORS[i % SPLIT_COLORS.length]}"></i>
       <span>${esc(g.name)}</span><b>${fmt(g.playing)}</b><span class="tag${cls}">${tag}</span></li>`;
   }).join('');
+  // hover popover: every game's live count
+  const max = sorted[0]?.playing || 1;
+  $('#ccuPop').innerHTML = `<p class="k">Live on Roblox · ${GAMES.length} games</p><ol>${sorted.map((g, i) => `
+    <li><i class="sw" style="background:${SPLIT_COLORS[i % SPLIT_COLORS.length]}"></i><span>${esc(g.name)}</span><b>${fmt(g.playing)}</b>
+      <em style="width:${Math.max(2, g.playing / max * 100).toFixed(1)}%;background:${SPLIT_COLORS[i % SPLIT_COLORS.length]}"></em></li>`).join('')}</ol>
+    <p class="ccu-pop-total"><span>Total</span><b>${fmt(total)}</b></p>`;
   drawSpark();
 }
+
+// hovering a bar segment shows which game it is
+(() => {
+  const split = $('#ccuSplit'), tip = $('#splitTip'), box = $('.console');
+  split.addEventListener('pointermove', e => {
+    const seg = e.target.closest('i[data-name]');
+    if (!seg) { tip.hidden = true; return; }
+    tip.innerHTML = `<b>${esc(seg.dataset.name)}</b> ${fmt(+seg.dataset.n)} playing · ${seg.dataset.pct}%`;
+    tip.hidden = false;
+    const r = box.getBoundingClientRect();
+    tip.style.left = Math.min(r.width - tip.offsetWidth - 8, Math.max(8, e.clientX - r.left - tip.offsetWidth / 2)) + 'px';
+    tip.style.top = (split.getBoundingClientRect().top - r.top - tip.offsetHeight - 10) + 'px';
+    split.querySelectorAll('i').forEach(x => x.classList.toggle('dim', x !== seg));
+  });
+  split.addEventListener('pointerleave', () => { tip.hidden = true; split.querySelectorAll('i').forEach(x => x.classList.remove('dim')); });
+})();
 
 // Update numbers already on screen without re-rendering (so images don't reload).
 function patchNumbers() {

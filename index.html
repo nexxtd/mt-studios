@@ -64,10 +64,11 @@
           <span class="dim" id="ccuUpdated">connecting…</span>
         </div>
         <div class="console-main">
-          <div>
-            <div class="k">Playing right now</div>
+          <div class="ccu-hover" tabindex="0" aria-describedby="ccuPop">
+            <div class="k">Playing right now <span class="ccu-hint" aria-hidden="true">ⓘ hover</span></div>
             <div class="ccu" id="ccu" aria-live="polite">—</div>
             <div class="ccu-delta" id="ccuDelta"></div>
+            <div class="ccu-pop" id="ccuPop" role="tooltip"></div>
           </div>
           <div class="spark-wrap">
             <svg id="spark" viewBox="0 0 240 64" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
@@ -75,6 +76,7 @@
           </div>
         </div>
         <div class="ccu-split" id="ccuSplit" aria-hidden="true"></div>
+        <div class="split-tip" id="splitTip" hidden></div>
         <ul class="console-list" id="opsfeed"></ul>
       </aside>
     </div>
