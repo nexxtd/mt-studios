@@ -43,8 +43,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* ---------- header ---------- */
 .top{position:sticky;top:14px;z-index:100;display:flex;align-items:center;justify-content:space-between;gap:16px;margin:14px auto 0;width:min(1120px,calc(100% - 2*var(--pad)));padding:8px 8px 8px 14px;border-radius:20px;background:var(--white);border:var(--b);box-shadow:var(--sh-sm)}
 .brand{display:flex;align-items:center;gap:10px}
-.mark{width:34px;height:34px;color:var(--yellow);transition:transform .6s var(--pop)}
-.mark rect{stroke:var(--ink);stroke-width:4}
+.mark{width:44px;height:44px;object-fit:contain;flex:none;transition:transform .6s var(--pop)}
 .brand:hover .mark{transform:rotate(-12deg) scale(1.1)}
 .brand-word{font-weight:800;letter-spacing:-.03em;font-size:19px}
 .brand-word span{font-weight:500;margin-left:4px;color:var(--ink-soft)}
