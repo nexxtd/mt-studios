@@ -449,6 +449,7 @@ function setErr(field, msg) {
 }
 function check(input) {
   const field = input.closest('.field'), v = input.value.trim();
+  if (!field) return true; // honeypot
   let msg = '';
   if (input.required && !v) msg = 'Required';
   else if (input.type === 'email' && v && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) msg = 'Enter a valid email';
@@ -470,17 +471,20 @@ form.addEventListener('submit', e => {
   if (!needs.length) ok = false;
   if ($('button[type=submit]', form).disabled) return;
   if (!ok) { ($('.bad input, .bad select', form) || form).focus(); return; }
-  const ref = 'MT-' + Math.random().toString(36).slice(2, 8).toUpperCase();
-  const data = Object.fromEntries(new FormData(form)); data.needs = needs; data.ref = ref; data.at = new Date().toISOString();
-  try { const all = JSON.parse(localStorage.getItem('mt_pitches') || '[]'); all.push(data); localStorage.setItem('mt_pitches', JSON.stringify(all)); } catch { /* storage unavailable */ }
-  const btn = $('button[type=submit]', form), label = btn.innerHTML;
+  const data = Object.fromEntries(new FormData(form)); data.needs = needs;
+  const btn = $('button[type=submit]', form), label = btn.innerHTML, fine = $('.form-foot .fine', form);
+  const fineText = fine.dataset.text || (fine.dataset.text = fine.textContent);
   btn.disabled = true; btn.innerHTML = '<i class="spinner" aria-hidden="true"></i> Sending…';
-  setTimeout(() => {
-    btn.disabled = false; btn.innerHTML = label;
-    $('#sentRef').textContent = ref;
-    form.hidden = true; $('#sent').hidden = false; $('#sent').focus();
-    form.reset();
-  }, reduced ? 0 : 1100);
+  fine.textContent = fineText; fine.classList.remove('form-err');
+  fetch('/api/pitch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+    .then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Something went wrong'); return j; })
+    .then(({ ref }) => {
+      $('#sentRef').textContent = ref;
+      form.hidden = true; $('#sent').hidden = false; $('#sent').focus();
+      form.reset();
+    })
+    .catch(err => { fine.textContent = `Couldn't send: ${err.message}. Please try again.`; fine.classList.add('form-err'); })
+    .finally(() => { btn.disabled = false; btn.innerHTML = label; });
 });
 // returning to the pitch page shows a fresh form
 addEventListener('hashchange', () => { if (!location.hash.startsWith('#/apply')) { form.hidden = false; $('#sent').hidden = true; } });

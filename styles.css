@@ -449,3 +449,7 @@ input[type=range]:active::-webkit-slider-thumb{transform:scale(1.2) rotate(-12de
 .no-motion .rw .w>span{transform:none}
 .no-motion .wipe,.no-motion .loader{display:none}
 .no-motion .console{transform:none}
+
+/* pitch form: spam honeypot + submit error */
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.fine.form-err{color:#c2185b;font-weight:700}
