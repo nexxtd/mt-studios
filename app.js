@@ -122,22 +122,46 @@ $('#svcDetail').innerHTML = SERVICES.map((s, i) => `<article class="svc-item rev
   <p>${esc(s.long)}</p>
   <ul>${s.items.map(x => `<li>${esc(x)}</li>`).join('')}</ul></article>`).join('');
 
-/* ---------- team (edit names, roles and bios here) ---------- */
+/* ---------- team (edit names, roles and links here) ----------
+   lead: shown big at the top, no contact link.
+   discord: Discord username (button copies it). Add discordId (the long number from
+   Discord → profile → Copy User ID) to make the button open their profile instead. */
 const TEAM = [
-  { name: 'Anuhai', role: 'Founder', bio: '' },
-  { name: 'Team member', role: 'Role coming soon', bio: '', placeholder: true },
-  { name: 'Team member', role: 'Role coming soon', bio: '', placeholder: true },
+  { name: 'Anuhai', role: 'Founder', lead: true },
+  { name: 'gyro', role: 'Team', discord: 'gyro' },
+  { name: 'Aurx', role: 'COO', discord: 'x0yc.' },
+  { name: 'wasealhere', role: 'Team', discord: 'wasealhere' },
+  { name: 'f2yv', role: 'Team', discord: 'f2yv' },
+  { name: 'tainted', role: 'Team', discord: 'tainted' },
+  { name: 'savant', role: 'CLO', discord: 'influentialfigure' },
 ];
 const TEAM_COLORS = ['var(--yellow)', 'var(--blue)', 'var(--pink)', 'var(--green)', 'var(--orange)', 'var(--purple)'];
-$('#teamGrid').innerHTML = TEAM.map((m, i) => {
-  const initials = m.placeholder ? '?' : m.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
-  return `<article class="member reveal${m.placeholder ? ' is-placeholder' : ''}">
-    <div class="member-avatar" style="--c:${TEAM_COLORS[i % TEAM_COLORS.length]}"><span>${esc(initials)}</span></div>
-    <h3>${esc(m.name)}</h3>
-    <p class="member-role">${esc(m.role)}</p>
-    ${m.bio ? `<p class="member-bio">${esc(m.bio)}</p>` : ''}
+const initialsOf = n => n.replace(/[^\p{L}\p{N}\s]/gu, '').split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+function memberCard(m, i) {
+  const btn = m.discordId
+    ? `<a class="member-dc" href="https://discord.com/users/${esc(m.discordId)}" target="_blank" rel="noopener">${DC_ICON}<span>@${esc(m.discord || m.name)}</span></a>`
+    : m.discord ? `<button type="button" class="member-dc" data-copy="${esc(m.discord)}" aria-label="Copy Discord username ${esc(m.discord)}">${DC_ICON}<span>@${esc(m.discord)}</span></button>` : '';
+  return `<article class="member reveal${m.lead ? ' is-lead' : ''}">
+    <div class="member-avatar" style="--c:${m.lead ? 'var(--yellow)' : TEAM_COLORS[(i + 1) % TEAM_COLORS.length]}"><span>${esc(initialsOf(m.name))}</span></div>
+    <div class="member-info">
+      ${m.lead ? '<p class="eyebrow">Leading MT Studios</p>' : ''}
+      <h3>${esc(m.name)}</h3>
+      <p class="member-role">${esc(m.role)}</p>
+      ${btn}
+    </div>
   </article>`;
-}).join('');
+}
+const DC_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.3 4.4A19.8 19.8 0 0 0 15.4 3l-.6 1.3a18.4 18.4 0 0 0-5.6 0L8.6 3a19.7 19.7 0 0 0-4.9 1.5C.6 9.1-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2.1a12.9 12.9 0 0 1-2-1l.5-.4a14.2 14.2 0 0 0 12.2 0l.5.4c-.6.4-1.3.7-2 1l1.3 2.1a19.8 19.8 0 0 0 6-3c.5-5.2-.9-9.7-3.6-13.7ZM8 15.4c-1.2 0-2.1-1.1-2.1-2.4S6.8 10.6 8 10.6s2.2 1.1 2.1 2.4c0 1.3-.9 2.4-2.1 2.4Zm8 0c-1.2 0-2.1-1.1-2.1-2.4s.9-2.4 2.1-2.4 2.2 1.1 2.1 2.4c0 1.3-.9 2.4-2.1 2.4Z"/></svg>';
+const lead = TEAM.filter(m => m.lead), crew = TEAM.filter(m => !m.lead);
+$('#teamGrid').innerHTML = lead.map(memberCard).join('') + crew.map((m, i) => memberCard(m, i)).join('');
+$('#teamGrid').addEventListener('click', async e => {
+  const b = e.target.closest('[data-copy]'); if (!b) return;
+  const label = $('span', b), old = label.textContent;
+  try { await navigator.clipboard.writeText(b.dataset.copy); label.textContent = 'Copied!'; }
+  catch { label.textContent = 'Discord: ' + b.dataset.copy; }
+  b.classList.add('copied');
+  setTimeout(() => { label.textContent = old; b.classList.remove('copied'); }, 1600);
+});
 
 function renderFeatured() {
   const feat = GAMES.filter(g => g.featured);
