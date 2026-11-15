@@ -6,13 +6,17 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const ROOT = process.cwd(), PORT = Number(process.env.PORT) || 5173;
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.json': 'application/json' };
 const ADMIN_CSP = "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://tr.rbxcdn.com https://*.rbxcdn.com; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
 
 http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   try {
     if (url.pathname.startsWith('/api/') && !url.pathname.includes('/_')) {
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Accept' }).end();
+        return;
+      }
       const file = path.join(ROOT, url.pathname.replace(/\/$/, '') + '.js');
       const mod = await import(pathToFileURL(file).href + '?t=' + Date.now());
       const fn = mod[req.method];
@@ -20,7 +24,9 @@ http.createServer(async (req, res) => {
       const chunks = []; for await (const c of req) chunks.push(c);
       const headers = new Headers(); for (const [k, v] of Object.entries(req.headers)) headers.set(k, Array.isArray(v) ? v.join(', ') : v);
       const r = await fn(new Request(url, { method: req.method, headers, body: chunks.length ? Buffer.concat(chunks) : undefined }));
-      res.writeHead(r.status, Object.fromEntries(r.headers)); res.end(Buffer.from(await r.arrayBuffer()));
+      const outHeaders = Object.fromEntries(r.headers);
+      outHeaders['Access-Control-Allow-Origin'] = '*';
+      res.writeHead(r.status, outHeaders); res.end(Buffer.from(await r.arrayBuffer()));
       return;
     }
     let p = decodeURIComponent(url.pathname);

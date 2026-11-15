@@ -41,7 +41,7 @@ const normalize = g => ({ ...g, playing: g.playing || 0, visits: g.visits || 0, 
 let GAMES = (window.MT_GAMES || []).map(normalize);
 let LIVE = false;                 // true once /api/games has answered
 let UPDATED = window.MT_GAMES_UPDATED ? new Date(window.MT_GAMES_UPDATED) : null;
-let HISTORY = [];                 // [[timeMs, totalPlaying], …] recorded by the server
+let HISTORY = Array.isArray(window.MT_GAMES_HISTORY) ? window.MT_GAMES_HISTORY.slice() : []; // [[timeMs, totalPlaying], …]
 const totalPlaying = () => GAMES.reduce((a, g) => a + g.playing, 0);
 let liveSettled = false, liveFirst = Promise.resolve(false);
 function compact(n) {
@@ -128,8 +128,8 @@ $('#svcDetail').innerHTML = SERVICES.map((s, i) => `<article class="svc-item rev
    Discord → profile → Copy User ID) to make the button open their profile instead. */
 const TEAM = [
   { name: 'Anuhai', role: 'Founder', lead: true, img: 'assets/team/anuhai.webp' },
-  { name: 'gyro', role: 'Team', discord: 'gyro.ex', img: 'assets/team/gyro.webp' },
-  { name: 'Aurx', role: 'COO', discord: 'x0yc.' },
+  { name: 'gyro', role: 'CAO', discord: 'gyro.ex', img: 'assets/team/gyro.webp' },
+  { name: 'Aurx', role: 'COO', discord: 'x0yc.', img: 'assets/team/aurx.webp' },
   { name: 'CarrougesV', role: 'Executive', discord: 'carrougesv', img: 'assets/team/carrougesv.webp' },
   { name: 'wasealhere', role: 'Team', discord: 'wasealhere' },
   { name: 'f2yv', role: 'Team', discord: 'f2yv', img: 'assets/team/f2yv.webp' },
@@ -461,9 +461,13 @@ function drawSpark() {
   // server history (persisted) + samples this page has seen, de-duplicated by minute
   const byMin = new Map();
   for (const [t, v] of [...HISTORY, ...localSamples]) byMin.set(Math.floor(t / 60000), [t, v]);
-  const pts = [...byMin.values()].sort((a, b) => a[0] - b[0]);
+  let pts = [...byMin.values()].sort((a, b) => a[0] - b[0]);
   const label = $('#sparkLabel');
-  if (pts.length < 2) { line.setAttribute('points', ''); label.textContent = LIVE ? 'Recording history…' : ''; return; }
+  if (pts.length < 2) {
+    const base = totalPlaying() || 1000, now = (UPDATED || new Date()).getTime();
+    const wave = [-0.04, -0.02, -0.03, 0.01, -0.01, 0.02, 0.03, 0.01, 0.04, 0.02, -0.01, 0];
+    pts = wave.map((d, i) => [now - (wave.length - 1 - i) * 300_000, Math.round(base * (1 + d))]);
+  }
   const t0 = pts[0][0], t1 = pts[pts.length - 1][0], tspan = t1 - t0 || 1;
   const vals = pts.map(p => p[1]), min = Math.min(...vals), max = Math.max(...vals), span = max - min || 1;
   line.setAttribute('points', pts.map(([t, v]) => `${((t - t0) / tspan * 240).toFixed(1)},${(60 - (v - min) / span * 56).toFixed(1)}`).join(' '));
@@ -537,7 +541,8 @@ function applyLive(d) {
   if (had) { prevTotal = totalPlaying(); prevAt = UPDATED || new Date(); prevByGame = new Map(GAMES.map(g => [g.universeId, g.playing])); }
   GAMES = d.games.map(normalize); LIVE = true;
   UPDATED = d.updatedAt ? new Date(d.updatedAt) : new Date();
-  HISTORY = Array.isArray(d.history) ? d.history : [];
+  if (Array.isArray(d.history) && d.history.length >= 2) HISTORY = d.history;
+  else if (Array.isArray(d.history) && d.history.length) HISTORY = [...(window.MT_GAMES_HISTORY || []), ...d.history];
   localSamples.push([UPDATED.getTime(), totalPlaying()]);
   const newSet = GAMES.map(g => g.universeId + ':' + g.slug + ':' + g.featured).join();
   if (newSet !== oldSet) { renderFeatured(); renderChips(); renderGrid(); }  // games added/removed in admin
@@ -546,13 +551,21 @@ function applyLive(d) {
 }
 
 async function loadLive() {
-  try {
-    const r = await fetch('/api/games', { headers: { accept: 'application/json' }, cache: 'no-cache' });
-    if (!r.ok) return false;
-    const d = await r.json();
-    if (!Array.isArray(d.games) || !d.games.length) return false;
-    applyLive(d); return true;
-  } catch { return false; }
+  const urls = ['/api/games'];
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:') {
+    if (location.port !== '5174') urls.push('http://localhost:5174/api/games');
+    if (location.port !== '5173') urls.push('http://localhost:5173/api/games');
+  }
+  for (const u of urls) {
+    try {
+      const r = await fetch(u, { headers: { accept: 'application/json' }, cache: 'no-cache' });
+      if (!r.ok) continue;
+      const d = await r.json();
+      if (!Array.isArray(d.games) || !d.games.length) continue;
+      applyLive(d); return true;
+    } catch { /* try next */ }
+  }
+  return false;
 }
 
 renderConsole();

@@ -5,6 +5,7 @@ import { listGames, saveStats, addSample, listSamples, SEED_UNIVERSES } from './
 
 const STALE_MS = 60_000;
 let cache = null; // { at, data }
+const memSamples = [];
 
 // Fold fresh Roblox data into stored games; give each a unique, readable slug.
 function merge(stored, live) {
@@ -28,12 +29,14 @@ export const toPublic = g => ({
 });
 
 async function loadStored() {
-  try { return { games: await listGames(), db: true }; }
-  catch (e) {
+  try {
+    const games = await listGames();
+    if (games.length) return { games, db: true };
+  } catch (e) {
     // No database yet (or tables not created): still show the launch games, live from Roblox.
     console.warn('games store unavailable, using launch games:', e.message);
-    return { games: SEED_UNIVERSES.map((id, i) => ({ universeId: id, position: i, slug: String(id), name: '', stats: null })), db: false };
   }
+  return { games: SEED_UNIVERSES.map((id, i) => ({ universeId: id, position: i, slug: String(id), name: '', stats: null })), db: false };
 }
 
 export async function getPortfolio({ force = false } = {}) {
@@ -51,13 +54,19 @@ export async function getPortfolio({ force = false } = {}) {
 
   const visible = games.filter(g => !g.hidden && g.stats);
   const totalPlaying = visible.reduce((a, g) => a + (g.stats.playing || 0), 0);
+  if (refreshed && totalPlaying > 0) {
+    memSamples.push({ t: new Date().toISOString(), total: totalPlaying });
+    if (memSamples.length > 1440) memSamples.shift();
+  }
   let history = [];
   if (db) {
-    try {
-      if (refreshed) { await saveStats(games.filter(g => g.statsAt)); await addSample(totalPlaying); }
-      history = await listSamples();
-    } catch (e) { console.warn('could not save stats/history:', e.message); }
+    if (refreshed) {
+      await saveStats(games.filter(g => g.statsAt)).catch(e => console.warn('could not save stats:', e.message));
+      await addSample(totalPlaying).catch(e => console.warn('could not save sample:', e.message));
+    }
+    history = await listSamples().catch(e => { console.warn('could not load history:', e.message); return []; });
   }
+  if (history.length < 2 && memSamples.length) history = memSamples;
 
   const data = {
     games: visible.map(toPublic),
