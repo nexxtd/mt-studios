@@ -122,6 +122,23 @@ $('#svcDetail').innerHTML = SERVICES.map((s, i) => `<article class="svc-item rev
   <p>${esc(s.long)}</p>
   <ul>${s.items.map(x => `<li>${esc(x)}</li>`).join('')}</ul></article>`).join('');
 
+/* ---------- team (edit names, roles and bios here) ---------- */
+const TEAM = [
+  { name: 'Anuhai', role: 'Founder', bio: '' },
+  { name: 'Team member', role: 'Role coming soon', bio: '', placeholder: true },
+  { name: 'Team member', role: 'Role coming soon', bio: '', placeholder: true },
+];
+const TEAM_COLORS = ['var(--yellow)', 'var(--blue)', 'var(--pink)', 'var(--green)', 'var(--orange)', 'var(--purple)'];
+$('#teamGrid').innerHTML = TEAM.map((m, i) => {
+  const initials = m.placeholder ? '?' : m.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  return `<article class="member reveal${m.placeholder ? ' is-placeholder' : ''}">
+    <div class="member-avatar" style="--c:${TEAM_COLORS[i % TEAM_COLORS.length]}"><span>${esc(initials)}</span></div>
+    <h3>${esc(m.name)}</h3>
+    <p class="member-role">${esc(m.role)}</p>
+    ${m.bio ? `<p class="member-bio">${esc(m.bio)}</p>` : ''}
+  </article>`;
+}).join('');
+
 function renderFeatured() {
   const feat = GAMES.filter(g => g.featured);
   $('#featured').innerHTML = (feat.length ? feat : GAMES).slice(0, 6).map(card).join('');
@@ -213,7 +230,7 @@ function dataNote() {
 }
 
 /* ---------- router ---------- */
-const TITLES = { home: 'MT Studios — Funding & LiveOps for Roblox games', portfolio: 'Portfolio — MT Studios', services: 'What we do — MT Studios', apply: 'Pitch your game — MT Studios' };
+const TITLES = { home: 'MT Studios — Funding & LiveOps for Roblox games', portfolio: 'Portfolio — MT Studios', services: 'What we do — MT Studios', team: 'Team — MT Studios', apply: 'Pitch your game — MT Studios' };
 let first = true, wipeTimer = 0;
 const wipe = document.createElement('div');
 wipe.className = 'wipe'; wipe.setAttribute('aria-hidden', 'true');
