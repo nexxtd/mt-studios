@@ -13,22 +13,8 @@
 </head>
 <body class="admin">
 
-<!-- ========== LOGIN ========== -->
-<main id="login" class="a-login" hidden>
-  <form class="form a-login-card" id="loginForm">
-    <p class="eyebrow">MT Studios · Admin</p>
-    <h1 class="display">Sign in</h1>
-    <div class="field">
-      <label for="pw">Password</label>
-      <input id="pw" name="password" type="password" autocomplete="current-password" required autofocus>
-      <p class="err" id="loginErr" role="alert"></p>
-    </div>
-    <button class="btn btn-sig" type="submit">Enter <span aria-hidden="true">→</span></button>
-  </form>
-</main>
-
 <!-- ========== DASHBOARD ========== -->
-<div id="dash" hidden>
+<div id="dash">
   <header class="top">
     <a class="brand" href="/" aria-label="Back to site">
       <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" rx="8" fill="currentColor"/><g fill="#17130f"><circle cx="10" cy="10" r="4"/><circle cx="22" cy="10" r="4"/><circle cx="10" cy="22" r="4"/><circle cx="22" cy="22" r="4"/></g></svg>
@@ -36,8 +22,7 @@
     </a>
     <div class="a-top-actions">
       <button class="a-chip" id="refresh" type="button">Refresh</button>
-      <button class="a-chip" id="export" type="button">Export CSV</button>
-      <button class="a-chip a-chip-ink" id="logout" type="button">Sign out</button>
+      <button class="a-chip a-chip-ink" id="export" type="button">Export CSV</button>
     </div>
   </header>
 

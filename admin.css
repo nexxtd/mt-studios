@@ -2,11 +2,6 @@
 body.admin{min-height:100vh}
 .admin .top{position:sticky}
 
-/* login */
-.a-login{min-height:100vh;display:grid;place-items:center;padding:24px 16px;
-  background-image:linear-gradient(rgba(23,19,15,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(23,19,15,.06) 1px,transparent 1px);background-size:44px 44px}
-.a-login-card{width:min(420px,100%)}
-.a-login-card h1{font-size:clamp(44px,8vw,64px);margin-top:-6px}
 
 /* header actions */
 .a-top-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}

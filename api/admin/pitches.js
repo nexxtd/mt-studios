@@ -1,21 +1,15 @@
-// /api/admin/pitches — admin only.
+// /api/admin/pitches — no login (open to anyone who knows the URL).
 //   GET                              → list all pitches
 //   PATCH  { ref, status?, note? }   → update review status / private note
 //   DELETE { ref }                   → remove a pitch
-import { isAuthed } from '../_lib/auth.js';
 import { listPitches, getPitch, savePitch, deletePitch } from '../_lib/store.js';
 import { json, readJson, sameOriginJson, handle } from '../_lib/http.js';
 
 const STATUSES = ['new', 'reviewing', 'accepted', 'rejected'];
-const unauthorized = () => json({ error: 'Not signed in' }, 401);
 
-export const GET = handle(async req => {
-  if (!isAuthed(req)) return unauthorized();
-  return json({ pitches: await listPitches() });
-});
+export const GET = handle(async () => json({ pitches: await listPitches() }));
 
 export const PATCH = handle(async req => {
-  if (!isAuthed(req)) return unauthorized();
   if (!sameOriginJson(req)) return json({ error: 'Bad request' }, 400);
   const { ref, status, note } = await readJson(req);
   const p = typeof ref === 'string' && await getPitch(ref);
@@ -31,7 +25,6 @@ export const PATCH = handle(async req => {
 });
 
 export const DELETE = handle(async req => {
-  if (!isAuthed(req)) return unauthorized();
   if (!sameOriginJson(req)) return json({ error: 'Bad request' }, 400);
   const { ref } = await readJson(req);
   if (typeof ref !== 'string' || !(await getPitch(ref))) return json({ error: 'Not found' }, 404);

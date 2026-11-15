@@ -1,5 +1,5 @@
 /* MT Studios admin dashboard. All pitch content is untrusted — it is only ever
-   inserted via esc()/textContent, never as raw HTML. Auth lives on the server. */
+   inserted via esc()/textContent, never as raw HTML. There is no login. */
 (() => {
 'use strict';
 const $ = (s, r = document) => r.querySelector(s);
@@ -13,31 +13,15 @@ let pitches = [], filter = 'all', query = '', openRef = null;
 async function api(path, opts = {}) {
   const r = await fetch(path, { credentials: 'same-origin', ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
   const j = await r.json().catch(() => ({}));
-  if (r.status === 401 && path !== '/api/admin/login') { showLogin(); throw new Error('Signed out'); }
   if (!r.ok) throw new Error(j.error || `Error ${r.status}`);
   return j;
 }
-
-/* ---------- auth ---------- */
-function showLogin() { $('#dash').hidden = true; closeDrawer(); $('#login').hidden = false; $('#pw').value = ''; $('#pw').focus(); }
-function showDash() { $('#login').hidden = true; $('#dash').hidden = false; }
-
-$('#loginForm').addEventListener('submit', async e => {
-  e.preventDefault();
-  const btn = $('button', e.target); btn.disabled = true; $('#loginErr').textContent = '';
-  try {
-    await api('/api/admin/login', { method: 'POST', body: JSON.stringify({ password: $('#pw').value }) });
-    showDash(); load();
-  } catch (err) { $('#loginErr').textContent = err.message; $('#pw').select(); }
-  finally { btn.disabled = false; }
-});
-$('#logout').addEventListener('click', async () => { try { await api('/api/admin/logout', { method: 'POST' }); } catch { /* ignore */ } pitches = []; render(); showLogin(); });
 
 /* ---------- data ---------- */
 async function load() {
   setMsg('Loading…');
   try { pitches = (await api('/api/admin/pitches')).pitches; setMsg(''); render(); }
-  catch (err) { if (err.message !== 'Signed out') setMsg(err.message, true); }
+  catch (err) { setMsg(err.message === 'Failed to fetch' ? 'Could not reach the server.' : err.message, true); }
 }
 function setMsg(t, bad) { const m = $('#msg'); m.textContent = t; m.classList.toggle('bad', !!bad); }
 
@@ -140,14 +124,5 @@ $('#export').addEventListener('click', () => {
   a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 });
 
-/* ---------- boot: try the existing session ---------- */
-fetch('/api/admin/pitches', { credentials: 'same-origin' })
-  .then(async r => {
-    if (r.status === 401) return showLogin();
-    const j = await r.json().catch(() => ({}));
-    showDash();
-    if (!r.ok) return setMsg(j.error || `Error ${r.status}`, true);
-    pitches = j.pitches; render();
-  })
-  .catch(() => { showDash(); setMsg('Could not reach the server.', true); });
+load();
 })();
